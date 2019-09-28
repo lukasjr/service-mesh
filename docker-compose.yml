@@ -1,0 +1,45 @@
+version: '3'
+services:
+
+  datadog:
+    image: datadog/agent:latest
+    # build:
+    #   context: ./datadog
+    env_file:
+      - ./datadog/datadog.env
+    volumes:
+     - /var/run/docker.sock:/var/run/docker.sock
+     - /proc/:/host/proc/:ro
+     - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+    networks:
+      - servicemesh
+
+  envoy:
+    build:
+      context: ./envoy
+    labels:
+      com.datadoghq.ad.check_names: '["envoy"]'
+      com.datadoghq.ad.init_configs: '[{}]'
+      com.datadoghq.ad.instances: '[{"stats_url": "http://envoy/stats"}]'
+      com.datadoghq.ad.logs: '[{}]'
+      #com.datadoghq.ad.logs: '[{"source": "redis", "service": "redis"}]'
+    networks:
+      - servicemesh
+    ports:
+      - "8001:8001"
+      - "8000:80"
+
+  flask_service:
+    build:
+      context: ./flask-service
+    environment:
+      - SERVICE_NAME=1
+    volumes:
+      - ./flask-service/service-envoy.yaml:/etc/service-envoy.yaml
+    networks:
+      - servicemesh
+    expose:
+      - "80"
+
+networks:
+  servicemesh: 

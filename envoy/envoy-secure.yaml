@@ -1,0 +1,61 @@
+admin:
+  access_log_path: "var/log/envoy.log"
+  address:
+    socket_address:
+      protocol: TCP
+      address: 127.0.0.1
+      port_value: 8001
+static_resources:
+  listeners:
+    - address:
+        socket_address:
+          protocol: TCP
+          address: 0.0.0.0
+          port_value: 80
+      filter_chains:
+        - filters:
+            - name: envoy.http_connection_manager
+              config:
+                codec_type: AUTO
+                stat_prefix: ingress_http
+                route_config:
+                  virtual_hosts:
+                    - name: backend
+                      domains:
+                        - "*"
+                      routes:
+                        - match:
+                            prefix: /stats
+                          route:
+                            cluster: service_stats
+                        - match:
+                            prefix: /service/1
+                          route:
+                            cluster: flask_service
+                http_filters:
+                  - name: envoy.router
+                    config:
+  clusters:
+    - name: service_stats
+      connect_timeout: 0.250s
+      type: LOGICAL_DNS
+      lb_policy: ROUND_ROBIN
+      hosts:
+        - socket_address:
+            protocol: TCP
+            address: 127.0.0.1
+            port_value: 8001
+    - name: flask_service
+      connect_timeout: 0.25s
+      type: strict_dns
+      lb_policy: round_robin
+      http2_protocol_options: {}
+      load_assignment:
+        cluster_name: service1
+        endpoints:
+        - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: flask_service
+                  port_value: 80
